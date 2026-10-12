@@ -1,0 +1,45 @@
+# Render Blueprint. Review service plans and expected charges before deploying.
+# The API and Celery worker share one persistent disk so SQLite and media artifacts
+# are visible to both processes. This is a single-instance starter deployment.
+services:
+  - type: web
+    name: clipforge-worker
+    runtime: docker
+    plan: standard
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    disk:
+      name: clipforge-data
+      mountPath: /data
+      sizeGB: 10
+    envVars:
+      - key: CLIPFORGE_DATA
+        value: /data
+      - key: DATABASE_URL
+        value: sqlite:////data/clipforge.db
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: clipforge-redis
+          property: connectionString
+      - key: WHISPER_MODEL
+        value: base
+      - key: WHISPER_DEVICE
+        value: cpu
+      - key: WHISPER_COMPUTE_TYPE
+        value: int8
+      - key: MAX_VIDEO_SECONDS
+        value: "1800"
+      - key: MAX_UPLOAD_BYTES
+        value: "1073741824"
+      - key: URL_DOWNLOAD_ENABLED
+        value: "true"
+      - key: CORS_ORIGINS
+        value: https://floot.com
+      - key: API_TOKEN
+        generateValue: true
+  - type: keyvalue
+    name: clipforge-redis
+    plan: starter
+    ipAllowList: []

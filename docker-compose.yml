@@ -1,0 +1,57 @@
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["redis_data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  api:
+    build: .
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports: ["${API_PORT:-8000}:8000"]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: sqlite:////data/clipforge.db
+      CLIPFORGE_DATA: /data
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}
+      WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
+      WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
+      MAX_VIDEO_SECONDS: ${MAX_VIDEO_SECONDS:-7200}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-2147483648}
+      URL_DOWNLOAD_ENABLED: ${URL_DOWNLOAD_ENABLED:-true}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      API_TOKEN: ${API_TOKEN:-}
+    volumes: ["clipforge_data:/data"]
+    depends_on:
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+  worker:
+    build: .
+    command: ["celery", "-A", "main.celery", "worker", "--loglevel=INFO", "--concurrency=${WORKER_CONCURRENCY:-1}"]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: sqlite:////data/clipforge.db
+      CLIPFORGE_DATA: /data
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}
+      WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
+      WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
+      MAX_VIDEO_SECONDS: ${MAX_VIDEO_SECONDS:-7200}
+      URL_DOWNLOAD_ENABLED: ${URL_DOWNLOAD_ENABLED:-true}
+    volumes: ["clipforge_data:/data"]
+    depends_on:
+      redis: { condition: service_healthy }
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["llm"]
+    volumes: ["ollama_data:/root/.ollama"]
+volumes:
+  redis_data:
+  clipforge_data:
+  ollama_data:

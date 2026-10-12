@@ -1,0 +1,10 @@
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
+celery[redis]==5.4.0
+redis==5.2.1
+SQLAlchemy==2.0.38
+yt-dlp
+faster-whisper==1.1.1
+python-multipart==0.0.20
+opencv-python-headless==4.11.0.86
+pytest==8.3.5
